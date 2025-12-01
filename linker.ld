@@ -1,7 +1,7 @@
 ENTRY(_start)
 
 /* 커널이 올라갈 물리 주소 (QEMU virt 기준 DRAM 0x4000_0000 근처 예시) */
-KERNEL_LOAD_ADDR = 0x40080000;
+KERNEL_LOAD_ADDR = 0x40200000;
 
 SECTIONS
 {

@@ -1,18 +1,24 @@
 TARGET     = kernel
-CROSS_COMPILE ?= aarch64-elf-
+CROSS_COMPILE ?= aarch64-none-elf-
 
 CC      = $(CROSS_COMPILE)gcc
 LD      = $(CROSS_COMPILE)ld
 OBJCOPY = $(CROSS_COMPILE)objcopy
 OBJDUMP = $(CROSS_COMPILE)objdump
+NM      = $(CROSS_COMPILE)nm
+
+SRC_DIR := src
+INC_DIR := include
+BUILD_DIR := bin
 
 CFLAGS  = -std=c11 -ffreestanding -nostdlib -nostdinc \
-          -Wall -Wextra -g -O2 \
+          -Wall -Wextra -g -O0 \
           -mcpu=cortex-a53 -march=armv8-a
+CFLAGS += -I$(INC_DIR)
 LDFLAGS = -T linker.ld -nostdlib
 
-SRC_C   = src/kmain.c
-SRC_S   = src/start.S
+SRC_C = $(wildcard $(SRC_DIR)/*.c)
+SRC_S = $(wildcard $(SRC_DIR)/*.S)
 
 OBJ_C   = $(SRC_C:.c=.o)
 OBJ_S   = $(SRC_S:.S=.o)
@@ -39,3 +45,8 @@ dump: $(TARGET).elf
 
 clean:
 	rm -f $(OBJS) $(TARGET).elf $(TARGET).bin $(TARGET).dump
+
+nm: $(TARGET).elf
+	$(NM) $(TARGET).elf
+
+.PHONY: all clean nm dump
