@@ -1,7 +1,7 @@
-#include "stdint.h"
-
 #ifndef __UART_H__
 #define __UART_H__
+
+#include "stdint.h"
 
 #define UART0_BASE 0x09000000
 #define UART0_DR (*((volatile uint32_t *)(UART0_BASE + 0x00)))
@@ -13,5 +13,6 @@ void uart_putc(char c);
 void uart_puts(const char *s);
 
 void uart_puthex(uint64_t n);
+void uart_puthex_noprefix(uint64_t n);
 
 #endif
