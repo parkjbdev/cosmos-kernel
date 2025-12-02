@@ -1,4 +1,4 @@
-TARGET     = kernel
+TARGET      = kernel
 CROSS_COMPILE ?= aarch64-none-elf-
 
 CC      = $(CROSS_COMPILE)gcc
@@ -9,7 +9,7 @@ NM      = $(CROSS_COMPILE)nm
 
 SRC_DIR := src
 INC_DIR := include
-BUILD_DIR := bin
+BUILD_DIR := build
 
 CFLAGS  = -std=c11 -ffreestanding -nostdlib -nostdinc \
           -Wall -Wextra -g -O0 \
@@ -20,8 +20,8 @@ LDFLAGS = -T linker.ld -nostdlib
 SRC_C = $(wildcard $(SRC_DIR)/*.c)
 SRC_S = $(wildcard $(SRC_DIR)/*.S)
 
-OBJ_C   = $(SRC_C:.c=.o)
-OBJ_S   = $(SRC_S:.S=.o)
+OBJ_C   = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRC_C))
+OBJ_S   = $(patsubst $(SRC_DIR)/%.S, $(BUILD_DIR)/%.o, $(SRC_S))
 OBJS    = $(OBJ_S) $(OBJ_C)
 
 # Emulation Settings
@@ -31,45 +31,50 @@ CPU     = cortex-a53
 SMP     = 1
 MEMORY  = 512M
 UBOOT   = $(PWD)/u-boot/u-boot.bin
-KERNEL_LOAD_ADDR = 0x40200000 # This should match the `KERNEL_LOAD_ADDR` in linker.ld
+KERNEL_LOAD_ADDR = 0x40200000 
 
-.PHONY: all clean dump
+.PHONY: all clean dump nm uboot boot
 
-all: $(TARGET).elf $(TARGET).bin
+all: $(BUILD_DIR)/$(TARGET).elf $(BUILD_DIR)/$(TARGET).bin
 
-$(TARGET).elf: $(OBJS) linker.ld
+$(BUILD_DIR)/$(TARGET).elf: $(OBJS) linker.ld
 	$(LD) $(LDFLAGS) -o $@ $(OBJS)
 
-$(TARGET).bin: $(TARGET).elf
+$(BUILD_DIR)/$(TARGET).bin: $(BUILD_DIR)/$(TARGET).elf
 	$(OBJCOPY) -O binary $< $@
 
-%.o: %.c
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
+	@mkdir -p $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-%.o: %.S
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.S
+	@mkdir -p $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-dump: $(TARGET).elf
-	$(OBJDUMP) -d $(TARGET).elf > $(TARGET).dump
+dump: $(BUILD_DIR)/$(TARGET).elf
+	$(OBJDUMP) -d $< > $(BUILD_DIR)/$(TARGET).dump
 
 clean:
-	rm -f $(OBJS) $(TARGET).elf $(TARGET).bin $(TARGET).dump
+	rm -rf $(BUILD_DIR)
 
-nm: $(TARGET).elf
-	$(NM) $(TARGET).elf
+nm: $(BUILD_DIR)/$(TARGET).elf
+	$(NM) $<
 
-uboot: $(TARGET).bin ubootsrc
+uboot: $(BUILD_DIR)/$(TARGET).bin
 	$(QEMU) -M $(MACHINE),gic-version=3,virtualization=false \
 	  -cpu $(CPU) -smp $(SMP) -m $(MEMORY) \
 	  -nographic \
 	  -bios '$(UBOOT)' \
-	  -device loader,file=$(TARGET).bin,addr=$(KERNEL_LOAD_ADDR)
+	  -device loader,file=$<,addr=$(KERNEL_LOAD_ADDR)
 
-boot: $(TARGET).bin
+uboot-bootloader:
+	cd u-boot && \
+	make qemu_arm64_defconfig && \
+	make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc)
+
+boot: $(BUILD_DIR)/$(TARGET).bin
 	$(QEMU) \
 	  -M $(MACHINE),gic-version=3,virtualization=false \
 	  -cpu $(CPU) -smp $(SMP) -m $(MEMORY) \
 	  -nographic \
-	  -kernel $(TARGET).bin
-
-.PHONY: all clean nm dump
+	  -kernel $<
