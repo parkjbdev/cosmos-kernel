@@ -24,6 +24,15 @@ OBJ_C   = $(SRC_C:.c=.o)
 OBJ_S   = $(SRC_S:.S=.o)
 OBJS    = $(OBJ_S) $(OBJ_C)
 
+# Emulation Settings
+QEMU    = qemu-system-aarch64
+MACHINE = virt
+CPU     = cortex-a53
+SMP     = 1
+MEMORY  = 512M
+UBOOT   = $(PWD)/u-boot/u-boot.bin
+KERNEL_LOAD_ADDR = 0x40200000 # This should match the `KERNEL_LOAD_ADDR` in linker.ld
+
 .PHONY: all clean dump
 
 all: $(TARGET).elf $(TARGET).bin
@@ -48,5 +57,19 @@ clean:
 
 nm: $(TARGET).elf
 	$(NM) $(TARGET).elf
+
+uboot: $(TARGET).bin ubootsrc
+	$(QEMU) -M $(MACHINE),gic-version=3,virtualization=false \
+	  -cpu $(CPU) -smp $(SMP) -m $(MEMORY) \
+	  -nographic \
+	  -bios '$(UBOOT)' \
+	  -device loader,file=$(TARGET).bin,addr=$(KERNEL_LOAD_ADDR)
+
+boot: $(TARGET).bin
+	$(QEMU) \
+	  -M $(MACHINE),gic-version=3,virtualization=false \
+	  -cpu $(CPU) -smp $(SMP) -m $(MEMORY) \
+	  -nographic \
+	  -kernel $(TARGET).bin
 
 .PHONY: all clean nm dump
