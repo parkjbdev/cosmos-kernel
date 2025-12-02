@@ -1,5 +1,6 @@
 // src/kmain.c
 
+#include "mmu.h"
 #include "stdint.h"
 #include "uart.h"
 
@@ -7,9 +8,8 @@ extern void load_vbar(void);
 
 uint64_t get_current_el(void) {
   uint64_t el;
-  /* CurrentEL 시스템 레지스터 읽기 */
   __asm__ volatile("mrs %0, CurrentEL" : "=r"(el));
-  return el >> 2; /* 하위 2비트는 reserved라 버림 */
+  return el >> 2;
 }
 
 void kmain(void) {
@@ -32,18 +32,27 @@ void kmain(void) {
   }
   uart_puts("--------------------------------\n\r");
 
-  /* 1. 벡터 테이블 등록 */
+  /* 1. Register Vector Table */
   load_vbar();
   uart_puts(" [INFO] Vector Table Loaded at VBAR_EL1\n\r");
 
-  uart_puts("--------------------------------\n\r");
-  uart_puts(" 3 seconds until CRASH TEST...\n\r");
-  uart_puts(" [ACTION] Trying Supervisor Call svc #0...\n\r");
+  /* Testing SVC */
+  // uart_puts("--------------------------------\n\r");
+  // uart_puts(" [ACTION] Trying Supervisor Call svc #0...\n\r");
+  // __asm__ __volatile__("svc #0");
+  // uart_puts(" !! IF YOU SEE THIS, THE TRAP FAILED !!\n\r");
 
-  __asm__ __volatile__("svc #0");
-  uart_puts(" !! IF YOU SEE THIS, THE TRAP FAILED !!\n\r");
+  /* 2. Initialize MMU */
+  init_mmu();
 
-  while (1) {
-    __asm__ volatile("wfe");
-  }
+  uart_puts(" [SUCCESS] MMU Enabled! D-Cache & I-Cache are ON.\n\r");
+  uart_puts(" [CHECK] Accessing RAM to verify...\n\r");
+
+  volatile int *p = (int *)0x45000000;
+  *p = 0xCAFE;
+  uart_puts(" Write/Read Test:");
+  uart_puthex_noprefix(*p);
+  uart_puts("\n");
+
+  return;
 }

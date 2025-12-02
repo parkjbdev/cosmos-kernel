@@ -7,10 +7,13 @@
 .extern kmain
 .extern __bss_start
 .extern __bss_end
+.extern __init_mmu
 
 _start:
 	// Disable Interrupt (DAIF 세트)
 	msr DAIFSet, #0b1111
+
+	bl __init_mmu
 
 	// 스택 포인터 설정 (임시로 DRAM 상단 근처로 가정)
 	// KERNEL_LOAD_ADDR + 16MB 정도 예시
